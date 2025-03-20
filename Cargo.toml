@@ -1,0 +1,31 @@
+[package]
+name = "local-code-search"
+version = "0.1.0"
+edition = "2024"
+
+[build-dependencies]
+cc = "*"
+
+[dependencies]
+anyhow = { version = "1.0.97", features = ["backtrace"] }
+blake2 = "0.10.6"
+clap = { version = "4.5.32", features = ["derive"] }
+dashmap = "6.1.0"
+fastembed = "4.6.0"
+futures = "0.3.31"
+ignore = "0.4.23"
+mcp-attr = "0.0.4"
+rusqlite = { version = "0.34.0", features = ["bundled"] }
+serde = { version = "1.0.219", features = ["derive"] }
+sqlite-vec = "0.1.6"
+tarpc = { version = "0.35.0", features = ["serde-transport", "serde-transport-json", "unix"] }
+tokio = { version = "1.44.1", features = ["full"] }
+tree-sitter = "0.25.3"
+tree-sitter-java = "0.23.5"
+tree-sitter-json = "0.24.8"
+tree-sitter-kotlin-ng = "1.1.0"
+tree-sitter-python = "0.23.6"
+tree-sitter-rust = "0.23.2"
+tree-sitter-typescript = "0.23.2"
+tree-sitter-yaml = "0.7.0"
+zerocopy = "0.8.23"
