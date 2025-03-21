@@ -1,10 +1,15 @@
 use anyhow::Result;
+use futures::{StreamExt, executor::block_on};
 use std::{
     path::PathBuf,
-    thread::{JoinHandle, spawn},
+    sync::{Arc, Mutex},
+};
+use tarpc::{
+    client, context,
+    server::{self, Channel},
 };
 
-use tokio::sync::{mpsc, oneshot};
+use crate::rpc::RpcError;
 
 use super::{
     project_files::{ProjectFiles, ResponseChunk},
@@ -17,66 +22,64 @@ pub struct ProjectService {
 }
 
 impl ProjectService {
-    pub fn start(path: PathBuf) -> ProjectStub {
-        let (tx, mut rx) = mpsc::channel(1);
-        let handle = spawn(move || {
-            let mut service = ProjectService::new(path).unwrap();
-            while let Some(message) = rx.blocking_recv() {
-                if let Err(e) = service.receive(message) {
-                    eprintln!("Error: {}", e);
-                }
-            }
+    pub fn start(path: PathBuf) -> ProjectRpcClient {
+        let (client_transport, server_transport) = tarpc::transport::channel::unbounded();
+        let server = server::BaseChannel::with_defaults(server_transport);
+        tokio::task::spawn_blocking(move || {
+            let project_service = Arc::new(Mutex::new(ProjectService::new(path).unwrap()));
+            block_on(
+                server
+                    .execute(project_service.serve())
+                    // Handle all requests sequentially.
+                    .for_each(|response| response),
+            )
         });
-        ProjectStub {
-            tx,
-            _handle: handle,
-        }
+        ProjectRpcClient::new(client::Config::default(), client_transport).spawn()
     }
 
     fn new(path: PathBuf) -> Result<Self> {
         let files = ProjectFiles::new(path)?;
         let repository = ProjectRepository::new()?;
 
-        for (path, chunks) in files.file_chunks()? {
+        for (path, chunks) in files.all_chunks() {
             repository.insert_file(&path.to_string_lossy(), chunks)?;
         }
 
         Ok(Self { files, repository })
     }
-
-    fn receive(&mut self, message: Message) -> Result<()> {
-        match message {
-            Message::SearchCode(query, respond) => {
-                let response = self.search_code(query);
-                respond.send(response).unwrap();
-            }
-        }
-        Ok(())
-    }
-
-    fn search_code(&mut self, query: String) -> Result<SearchCodeResponse> {
-        let chunks = self.repository.search(&query)?;
-        let response = self.files.chunks_to_response(chunks)?;
-        Ok(response)
-    }
 }
 
 type SearchCodeResponse = Vec<ResponseChunk>;
 
-pub enum Message {
-    SearchCode(String, oneshot::Sender<Result<SearchCodeResponse>>),
+#[tarpc::service]
+pub trait ProjectRpc {
+    async fn search_code(query: String) -> Result<SearchCodeResponse, RpcError>;
+
+    async fn file_updated(path: PathBuf) -> Result<(), RpcError>;
 }
 
-pub struct ProjectStub {
-    tx: mpsc::Sender<Message>,
-    _handle: JoinHandle<()>,
-}
+impl ProjectRpc for Arc<Mutex<ProjectService>> {
+    async fn search_code(
+        self,
+        _ctx: context::Context,
+        query: String,
+    ) -> Result<SearchCodeResponse, RpcError> {
+        let service = self.lock().unwrap();
+        let chunks = service.repository.search(&query).unwrap();
+        Ok(service.files.chunks_to_response(chunks))
+    }
 
-impl ProjectStub {
-    pub async fn search_code(&self, query: String) -> Result<SearchCodeResponse> {
-        let (tx, rx) = oneshot::channel();
-        self.tx.send(Message::SearchCode(query, tx)).await?;
-        let result = rx.await?;
-        result
+    async fn file_updated(
+        self,
+        _ctx: context::Context,
+        file_path: PathBuf,
+    ) -> Result<(), RpcError> {
+        let mut service = self.lock().unwrap();
+        service.files.create_or_update(&file_path)?;
+        let chunks = service.files.file_chunks(&file_path);
+        service
+            .repository
+            .insert_file(&file_path.to_string_lossy(), chunks)?;
+        Ok(())
     }
 }

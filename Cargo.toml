@@ -7,6 +7,7 @@ edition = "2024"
 cc = "*"
 
 [dependencies]
+actix = "0.13.5"
 anyhow = { version = "1.0.97", features = ["backtrace"] }
 blake2 = "0.10.6"
 clap = { version = "4.5.32", features = ["derive"] }
@@ -19,6 +20,7 @@ rusqlite = { version = "0.34.0", features = ["bundled"] }
 serde = { version = "1.0.219", features = ["derive"] }
 sqlite-vec = "0.1.6"
 tarpc = { version = "0.35.0", features = ["serde-transport", "serde-transport-json", "unix"] }
+thiserror = "2.0.12"
 tokio = { version = "1.44.1", features = ["full"] }
 tree-sitter = "0.25.3"
 tree-sitter-java = "0.23.5"

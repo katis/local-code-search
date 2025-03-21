@@ -1,0 +1,9 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+<instructions>
+For any request, use the @search_code tool to check what the code does.
+Prefer that first before resorting to command line grepping etc.
+</instructions>

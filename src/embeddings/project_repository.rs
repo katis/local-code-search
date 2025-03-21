@@ -21,8 +21,7 @@ impl ProjectRepository {
                 path TEXT NOT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            );
-            ",
+            );",
             [],
         )?;
         conn.execute(
@@ -37,8 +36,7 @@ impl ProjectRepository {
                 start_byte INTEGER NOT NULL,
                 end_byte INTEGER NOT NULL,
                 embeddings float[384]
-            )
-            ",
+            )",
             [],
         )?;
         Ok(Self { conn, model })
@@ -106,8 +104,8 @@ impl ProjectRepository {
             "SELECT
                 file_id,
                 start_row,
-                start_column,
                 end_row,
+                start_column,
                 end_column,
                 start_byte,
                 end_byte,
@@ -128,17 +126,11 @@ impl ProjectRepository {
                         row.get::<_, String>(0)
                     })?;
 
-            let start_row: usize = row.get(1)?;
-            let start_column: usize = row.get(2)?;
-            let end_row: usize = row.get(3)?;
-            let end_column: usize = row.get(4)?;
-            let start_byte: usize = row.get(5)?;
-            let end_byte: usize = row.get(6)?;
             chunks.push(OutputChunk {
                 path: PathBuf::from(path),
-                row: start_row..end_row,
-                column: start_column..end_column,
-                byte: start_byte..end_byte,
+                row: row.get(1)?..row.get(2)?,
+                column: row.get(3)?..row.get(4)?,
+                byte: row.get(5)?..row.get(6)?,
             });
         }
         Ok(chunks)

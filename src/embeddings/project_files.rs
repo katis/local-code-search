@@ -4,7 +4,7 @@ use ignore::Walk;
 use std::{
     collections::{HashMap, HashSet},
     ops::Range,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 use tree_sitter::{Language, Tree};
 
@@ -39,23 +39,33 @@ impl ProjectFiles {
         Ok(Self { files })
     }
 
-    pub fn update_file(&mut self, file_path: PathBuf) -> Result<()> {
-        let Some(file) = self.files.get_mut(&file_path) else {
-            return Err(anyhow::anyhow!("File not found: {:?}", file_path));
-        };
-        file.update()?;
-        Ok(())
+    pub fn create_or_update(&mut self, file_path: &Path) -> Result<()> {
+        match self.files.get_mut(file_path) {
+            Some(file) => file.update(),
+            _ => {
+                let file = ProjectFile::new(file_path.to_path_buf())?;
+                self.files.insert(file_path.to_path_buf(), file);
+                Ok(())
+            }
+        }
     }
 
-    pub fn file_chunks(&self) -> Result<Vec<(PathBuf, Vec<Chunk>)>> {
+    pub fn all_chunks(&self) -> Vec<(PathBuf, Vec<Chunk>)> {
         self.files
             .iter()
-            .map(|(path, file)| Ok((path.clone(), file.chunks()?)))
+            .map(|(path, file)| (path.clone(), file.chunks()))
             .collect()
     }
 
-    pub fn chunks_to_response(&self, chunks: Vec<OutputChunk>) -> Result<Vec<ResponseChunk>> {
-        Ok(chunks
+    pub fn file_chunks(&self, file_path: &Path) -> Vec<Chunk> {
+        let Some(file) = self.files.get(file_path) else {
+            return vec![];
+        };
+        file.chunks()
+    }
+
+    pub fn chunks_to_response(&self, chunks: Vec<OutputChunk>) -> Vec<ResponseChunk> {
+        chunks
             .into_iter()
             .flat_map(|chunk| {
                 let file = self.files.get(&chunk.path)?;
@@ -66,7 +76,7 @@ impl ProjectFiles {
                     column: chunk.column,
                 })
             })
-            .collect())
+            .collect()
     }
 }
 
@@ -90,12 +100,9 @@ struct ProjectFile {
 impl ProjectFile {
     pub fn new(path: PathBuf) -> Result<Self> {
         let mut parser = tree_sitter::Parser::new();
-        let Some(language) = ext_to_language(
-            path.extension()
-                .unwrap_or_default()
-                .to_str()
-                .unwrap_or_default(),
-        ) else {
+        let Some(language) =
+            ext_to_language(&path.extension().unwrap_or_default().to_string_lossy())
+        else {
             return Err(anyhow::anyhow!("Unsupported file extension {:?}", path));
         };
         parser.set_language(&language)?;
@@ -125,7 +132,7 @@ impl ProjectFile {
         Ok(())
     }
 
-    pub fn chunks(&self) -> Result<Vec<Chunk>> {
+    pub fn chunks(&self) -> Vec<Chunk> {
         let mut chunks = Vec::new();
         for child in self.tree.root_node().children(&mut self.tree.walk()) {
             let content = self.text[child.start_byte()..child.end_byte()].into();
@@ -136,7 +143,7 @@ impl ProjectFile {
                 content,
             });
         }
-        Ok(chunks)
+        chunks
     }
 }
 
