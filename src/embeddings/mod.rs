@@ -1,3 +1,4 @@
+mod code_splitter;
 mod project_files;
 mod project_repository;
 mod project_service;

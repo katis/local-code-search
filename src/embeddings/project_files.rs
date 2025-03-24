@@ -8,7 +8,10 @@ use std::{
 };
 use tree_sitter::{Language, Tree};
 
-use super::project_repository::{Chunk, OutputChunk};
+use super::{
+    code_splitter::{Chunk, CodeSplitter},
+    project_repository::OutputChunk,
+};
 
 pub struct ProjectFiles {
     files: HashMap<PathBuf, ProjectFile>,
@@ -90,7 +93,6 @@ pub struct ResponseChunk {
 
 struct ProjectFile {
     parser: tree_sitter::Parser,
-    language: tree_sitter::Language,
     path: String,
     text: String,
     hash: Vec<u8>,
@@ -114,7 +116,6 @@ impl ProjectFile {
         let hash = hash_file(&text);
         Ok(Self {
             parser,
-            language,
             path: path.to_string_lossy().to_string(),
             text,
             hash,
@@ -133,29 +134,25 @@ impl ProjectFile {
     }
 
     pub fn chunks(&self) -> Vec<Chunk> {
-        let mut chunks = Vec::new();
-        for child in self.tree.root_node().children(&mut self.tree.walk()) {
-            let content = self.text[child.start_byte()..child.end_byte()].into();
-            chunks.push(Chunk {
-                row: child.start_position().row..child.end_position().row,
-                column: child.start_position().column..child.end_position().column,
-                byte: child.start_byte()..child.end_byte(),
-                content,
-            });
-        }
-        chunks
+        let splitter = CodeSplitter::new(&self.tree, &self.text, 1000);
+        splitter.chunks()
     }
 }
 
 fn ext_to_language(ext: &str) -> Option<Language> {
     match ext {
+        "c" => Some(tree_sitter_c::LANGUAGE.into()),
+        "cpp" => Some(tree_sitter_cpp::LANGUAGE.into()),
+        "cs" => Some(tree_sitter_c_sharp::LANGUAGE.into()),
+        "go" => Some(tree_sitter_go::LANGUAGE.into()),
+        "java" => Some(tree_sitter_java::LANGUAGE.into()),
+        "json" => Some(tree_sitter_json::LANGUAGE.into()),
+        "kt" => Some(tree_sitter_kotlin_ng::LANGUAGE.into()),
+        "py" => Some(tree_sitter_python::LANGUAGE.into()),
         "rs" => Some(tree_sitter_rust::LANGUAGE.into()),
+        "scala" => Some(tree_sitter_scala::LANGUAGE.into()),
         "ts" => Some(tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into()),
         "tsx" => Some(tree_sitter_typescript::LANGUAGE_TSX.into()),
-        "py" => Some(tree_sitter_python::LANGUAGE.into()),
-        "java" => Some(tree_sitter_java::LANGUAGE.into()),
-        "kt" => Some(tree_sitter_kotlin_ng::LANGUAGE.into()),
-        "json" => Some(tree_sitter_json::LANGUAGE.into()),
         "yaml" | "yml" => Some(tree_sitter_yaml::LANGUAGE.into()),
         _ => None,
     }

@@ -5,6 +5,8 @@ use fastembed::TextEmbedding;
 use rusqlite::{Connection, OptionalExtension, params};
 use zerocopy::IntoBytes;
 
+use super::code_splitter::Chunk;
+
 pub struct ProjectRepository {
     conn: Connection,
     model: TextEmbedding,
@@ -81,17 +83,17 @@ impl ProjectRepository {
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         )?;
-        let content: Vec<&str> = chunks.iter().map(|chunk| chunk.content.as_str()).collect();
+        let content: Vec<&str> = chunks.iter().map(|chunk| chunk.text).collect();
         let embeddings = self.model.embed(content, None)?;
         for (chunk, embedding) in chunks.iter().zip(embeddings) {
             stmt.execute(params![
                 file_id,
-                chunk.row.start,
-                chunk.column.start,
-                chunk.row.end,
-                chunk.column.end,
-                chunk.byte.start,
-                chunk.byte.end,
+                chunk.start.row,
+                chunk.start.column,
+                chunk.end.row,
+                chunk.end.column,
+                chunk.range.start,
+                chunk.range.end,
                 embedding.as_bytes(),
             ])?;
         }
@@ -135,13 +137,6 @@ impl ProjectRepository {
         }
         Ok(chunks)
     }
-}
-
-pub struct Chunk {
-    pub row: Range<usize>,
-    pub column: Range<usize>,
-    pub byte: Range<usize>,
-    pub content: String,
 }
 
 pub struct OutputChunk {
