@@ -2006,6 +2006,7 @@ dependencies = [
  "fastembed",
  "futures",
  "ignore",
+ "ignore-files",
  "indoc",
  "mcp-attr",
  "recursive",
@@ -2029,6 +2030,9 @@ dependencies = [
  "tree-sitter-typescript",
  "tree-sitter-yaml",
  "watchexec",
+ "watchexec-events",
+ "watchexec-filterer-ignore",
+ "watchexec-signals",
  "zerocopy",
 ]
 
@@ -4393,6 +4397,22 @@ checksum = "7cfbd49bb801e0128aa931808a3953df026b90608e044c22d814b63439fe5f51"
 dependencies = [
  "nix",
  "notify-types",
+ "watchexec-signals",
+]
+
+[[package]]
+name = "watchexec-filterer-ignore"
+version = "6.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0a0524ec17a715e020651e4e7bb55ee4ba7f6915a983ca1b52d90b1ecd33c765"
+dependencies = [
+ "dunce",
+ "ignore",
+ "ignore-files",
+ "normalize-path",
+ "tracing",
+ "watchexec",
+ "watchexec-events",
  "watchexec-signals",
 ]
 
